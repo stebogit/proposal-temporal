@@ -2,6 +2,7 @@
 
 import { GetDefaultCalendar } from './calendar.mjs';
 import { ES } from './ecmascript.mjs';
+import { DateTimeFormat } from './intl.mjs';
 import { GetIntrinsic, MakeIntrinsicClass } from './intrinsicclass.mjs';
 import { ISO_YEAR, ISO_MONTH, REF_ISO_DAY, CALENDAR, CreateSlots, GetSlot, SetSlot } from './slots.mjs';
 
@@ -169,9 +170,9 @@ export class YearMonth {
     }
     return resultString;
   }
-  toLocaleString(...args) {
+  toLocaleString(locales = undefined, options = undefined) {
     if (!ES.IsTemporalYearMonth(this)) throw new TypeError('invalid receiver');
-    return new Intl.DateTimeFormat(...args).format(this);
+    return new DateTimeFormat(locales, options).format(this);
   }
   valueOf() {
     throw new TypeError('use compare() or equals() to compare Temporal.YearMonth');
@@ -192,17 +193,17 @@ export class YearMonth {
   getISOFields() {
     if (!ES.IsTemporalYearMonth(this)) throw new TypeError('invalid receiver');
     return {
-      isoYear: GetSlot(this, ISO_YEAR),
+      calendar: GetSlot(this, CALENDAR),
       isoMonth: GetSlot(this, ISO_MONTH),
-      refISODay: GetSlot(this, REF_ISO_DAY),
-      calendar: GetSlot(this, CALENDAR)
+      isoYear: GetSlot(this, ISO_YEAR),
+      refISODay: GetSlot(this, REF_ISO_DAY)
     };
   }
   static from(item, options = undefined) {
     const overflow = ES.ToTemporalOverflow(options);
     const TemporalCalendar = GetIntrinsic('%Temporal.Calendar%');
     let result;
-    if (typeof item === 'object' && item) {
+    if (ES.Type(item) === 'Object') {
       if (ES.IsTemporalYearMonth(item)) {
         const year = GetSlot(item, ISO_YEAR);
         const month = GetSlot(item, ISO_MONTH);
@@ -233,11 +234,12 @@ export class YearMonth {
       const val2 = GetSlot(two, slot);
       if (val1 !== val2) return ES.ComparisonResult(val1 - val2);
     }
+    // FIXME call tostring
     const cal1 = GetSlot(one, CALENDAR).id;
     const cal2 = GetSlot(two, CALENDAR).id;
     return ES.ComparisonResult(cal1 < cal2 ? -1 : cal1 > cal2 ? 1 : 0);
   }
 }
-YearMonth.prototype.toJSON = YearMonth.prototype.toString;
+YearMonth.prototype.toJSON = YearMonth.prototype.toString; // FIXME: functions should not be equal
 
 MakeIntrinsicClass(YearMonth, 'Temporal.YearMonth');

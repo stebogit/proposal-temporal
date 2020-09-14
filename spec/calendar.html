@@ -36,6 +36,8 @@
     <emu-clause id="sec-temporal-totemporalcalendar" aoid="ToTemporalCalendar">
       <h1>ToTemporalCalendar ( _temporalCalendarLike_ )</h1>
       <emu-alg>
+        1. If _temporalCalendarLike_ is *undefined*, then
+          1. Return ! GetDefaultCalendar().
         1. If Type(_temporalCalendarLike_) is Object, then
           1. Return _temporalCalendarLike_.
         1. Let _identifier_ be ? ToString(_temporalCalendarLike_).
@@ -52,6 +54,67 @@
         1. If Type(_calendar_) is not Object, then
           1. Throw a *TypeError* exception.
         1. Return _calendar_.
+      </emu-alg>
+    </emu-clause>
+
+    <emu-clause id="sec-temporal-datefromfields" aoid="DateFromFields">
+      <h1>DateFromFields ( _calendar_, _record_, _overflow_, _constructor_ )</h1>
+      <!-- _record_ : { [[Era]], [[Year]], [[Month]], [[Day]] } -->
+      <emu-alg>
+        1. Assert: Type(_calendar_) is Object.
+        1. Let _fields_ be ! ObjectCreate(%Object.prototype%).
+        1. Perform ! CreateDataPropertyOrThrow(_fields_, *"day"*, _record_.[[Day]]).
+        1. Perform ! CreateDataPropertyOrThrow(_fields_, *"era"*, _record_.[[Era]]).
+        1. Perform ! CreateDataPropertyOrThrow(_fields_, *"month"*, _record_.[[Month]]).
+        1. Perform ! CreateDataPropertyOrThrow(_fields_, *"year"*, _record_.[[Year]]).
+        1. Let _options_ be ! ObjectCreate(%Object.prototype%).
+        1. Perform ! CreateDataPropertyOrThrow(_options_, *"overflow"*, _overflow_).
+        1. Let _dateFromFields_ be ? Get(_calendar_, *"dateFromFields"*).
+        1. Let _date_ be ? Call(_dateFromFields_, _calendar_, « _fields_, _options_, _constructor_ »).
+        1. Perform ? RequireInternalSlot(_date_, [[InitializedTemporalDate]]).
+        1. Return _date_.
+      </emu-alg>
+    </emu-clause>
+
+    <emu-clause id="sec-temporal-yearmonthfromfields" aoid="YearMonthFromFields">
+      <h1>YearMonthFromFields ( _calendar_, _record_, _overflow_, _constructor_ )</h1>
+      <!-- _record_ : { [[Era]], [[Year]], [[Month]] } -->
+      <emu-alg>
+        1. Assert: Type(_calendar_) is Object.
+        1. Let _fields_ be ! ObjectCreate(%Object.prototype%).
+        1. Perform ! CreateDataPropertyOrThrow(_fields_, *"era"*, _record_.[[Era]]).
+        1. Perform ! CreateDataPropertyOrThrow(_fields_, *"month"*, _record_.[[Month]]).
+        1. Perform ! CreateDataPropertyOrThrow(_fields_, *"year"*, _record_.[[Year]]).
+        1. Let _options_ be ! ObjectCreate(%Object.prototype%).
+        1. Perform ! CreateDataPropertyOrThrow(_options_, *"overflow"*, _overflow_).
+        1. Let _yearMonthFromFields_ be ? Get(_calendar_, *"yearMonthFromFields"*).
+        1. Let _yearMonth_ be ? Call(_yearMonthFromFields_, _calendar_, « _fields_, _options_, _constructor_ »).
+        1. Perform ? RequireInternalSlot(_yearMonth_, [[InitializedTemporalYearMonth]]).
+        1. Return _yearMonth_.
+      </emu-alg>
+    </emu-clause>
+
+    <emu-clause id="sec-temporal-monthdayfromfields" aoid="MonthDayFromFields">
+      <h1>MonthDayFromFields ( _calendar_, _fields_, _overflow_, _constructor_ )</h1>
+      <!-- _record_ : { [[Month]], [[Day]] } -->
+      <emu-alg>
+        1. Assert: Type(_calendar_) is Object.
+        1. Let _fields_ be ! ObjectCreate(%Object.prototype%).
+        1. Perform ! CreateDataPropertyOrThrow(_fields_, *"day"*, _record_.[[Day]]).
+        1. Perform ! CreateDataPropertyOrThrow(_fields_, *"month"*, _record_.[[Month]]).
+        1. Let _options_ be ! ObjectCreate(%Object.prototype%).
+        1. Perform ! CreateDataPropertyOrThrow(_options_, *"overflow"*, _overflow_).
+        1. Let _monthDayFromFields_ be ? Get(_calendar_, *"monthDayFromFields"*).
+        1. Let _monthDay_ be ? Call(_monthDayFromFields_, _calendar_, « _fields_, _options_, _constructor_ »).
+        1. Perform ? RequireInternalSlot(_monthDay_, [[InitializedTemporalMonthDay]]).
+        1. Return _monthDay_.
+      </emu-alg>
+    </emu-clause>
+
+    <emu-clause id="sec-temporal-formatcalendarannotation" aoid="FormatCalendarAnnotation">
+      <h1>FormatCalendarAnnotation ( _calendar_ )</h1>
+      <emu-alg>
+        1. <mark>TODO.</mark>
       </emu-alg>
     </emu-clause>
   </emu-clause>
@@ -91,7 +154,7 @@
 
     <emu-clause id="sec-temporal-calendar-prototype">
       <h1>Temporal.Calendar.prototype</h1>
-      <p>The initial value of Temporal.Calendar.prototype is %Temporal.Calendar.prototype%.</p>
+      <p>The initial value of `Temporal.Calendar.prototype` is %Temporal.Calendar.prototype%.</p>
       <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</p>
     </emu-clause>
 
@@ -139,7 +202,7 @@
 
     <emu-clause id="sec-temporal.calendar.prototype.constructor">
       <h1>Temporal.Calendar.prototype.constructor</h1>
-      <p>The initial value of Temporal.Calendar.prototype.constructor is %Temporal.Calendar%.</p>
+      <p>The initial value of `Temporal.Calendar.prototype.constructor` is %Temporal.Calendar%.</p>
     </emu-clause>
 
     <emu-clause id="sec-temporal.calendar.prototype-@@tostringtag">
@@ -155,7 +218,7 @@
     <emu-clause id="sec-get-temporal.calendar.prototype.id">
       <h1>get Temporal.Calendar.prototype.id</h1>
       <p>
-        `Temporal.Calendar.prototype.id` is an accessor property whose set accessor function is undefined.
+        `Temporal.Calendar.prototype.id` is an accessor property whose set accessor function is *undefined*.
         Its get accessor function performs the following steps:
       </p>
       <emu-alg>

@@ -3,8 +3,9 @@
 
 <emu-clause id="sec-temporal-date-objects">
   <h1>Temporal.Date Objects</h1>
-  <p>A Temporal.Date object is an immutable Object that contains Number values corresponding to a particular year, month,
-    and day.</p>
+  <p>A Temporal.Date object is an immutable Object that contains Number values corresponding to a
+    particular year, month, and day in the ISO8601 calendar, as well as an Object value used to
+    interpret those Number values in a particular calendar.</p>
 
   <emu-clause id="sec-temporal-date-constructor">
     <h1>The Temporal.Date Constructor</h1>
@@ -16,7 +17,7 @@
     </ul>
 
     <emu-clause id="sec-temporal.date">
-      <h1>Temporal.Date ( _isoYear_, _isoMonth_, _isoDay_ )</h1>
+      <h1>Temporal.Date ( _isoYear_, _isoMonth_, _isoDay_ [ , _calendarLike_ ] )</h1>
       <p>
         When the `Temporal.Date` function is called, the following steps are taken:
       </p>
@@ -26,7 +27,8 @@
         1. Let _y_ be ? ToInteger(_isoYear_).
         1. Let _m_ be ? ToInteger(_isoMonth_).
         1. Let _d_ be ? ToInteger(_isoDay_).
-        1. Return ? CreateTemporalDate(_y_, _m_, _d_, NewTarget).
+        1. Let _calendar_ be ? ToTemporalCalendar(_calendarLike_).
+        1. Return ? CreateTemporalDate(_y_, _m_, _d_, _calendar_, NewTarget).
       </emu-alg>
     </emu-clause>
   </emu-clause>
@@ -41,7 +43,7 @@
 
     <emu-clause id="sec-temporal-date-prototype">
       <h1>Temporal.Date.prototype</h1>
-      <p>The initial value of Temporal.Date.prototype is %Temporal.Date.prototype%.</p>
+      <p>The initial value of `Temporal.Date.prototype` is %Temporal.Date.prototype%.</p>
       <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</p>
     </emu-clause>
 
@@ -65,15 +67,31 @@
         The following steps are taken:
       </p>
       <emu-alg>
+        1. Let _constructor_ be the *this* value.
         1. Let _overflow_ be ? ToTemporalOverflow(_options_).
         1. If Type(_item_) is Object, then
-          1. Let _result_ be ? ToTemporalDateRecord(_item_).
+          1. If _item_ has an [[InitializedTemporalDate]] internal slot, then
+            1. Let _result_ be {
+                [[Year]]: _item_.[[ISOYear]],
+                [[Month]]: _item_.[[ISOMonth]],
+                [[Day]]: _item_.[[ISODay]],
+                [[Calendar]]: _item_.[[Calendar]]
+              }.
+          1. Else,
+            1. Let _fields_ be ? ToTemporalDateRecord(_item_).
+            1. Let _calendar_ be _fields_.[[Calendar]].
+            1. Let _record_ be the new Record {
+                [[Era]]: _fields_.[[Era]],
+                [[Year]]: _fields_.[[Year]],
+                [[Month]]: _fields_.[[Month]],
+                [[Day]]: _fields_.[[Day]]
+              }.
+            1. Return ? DateFromFields(_calendar_, _record_, _overflow_, _constructor_).
         1. Else,
           1. Let _string_ be ? ToString(_item_).
           1. Let _result_ be ? ParseTemporalDateString(_string_).
-        1. Let _constructor_ be the *this* value.
         1. Set _result_ to ? RegulateDate(_result_.[[Year]], _result_.[[Month]], _result_.[[Day]], _overflow_).
-        1. Return ? CreateTemporalDateFromStatic(_constructor_, _result_.[[Year]], _result_.[[Month]], _result_.[[Day]]).
+        1. Return ? CreateTemporalDateFromStatic(_constructor_, _result_.[[Year]], _result_.[[Month]], _result_.[[Day]], _result_.[[Calendar]]).
       </emu-alg>
     </emu-clause>
 
@@ -86,7 +104,16 @@
       <emu-alg>
         1. Perform ? RequireInternalSlot(_one_, [[InitializedTemporalDate]]).
         1. Perform ? RequireInternalSlot(_two_, [[InitializedTemporalDate]]).
-        1. Return ! CompareTemporalDate(_one_.[[ISOYear]], _one_.[[ISOMonth]], _one_.[[ISODay]], _two_.[[ISOYear]], _two_.[[ISOMonth]], _two_.[[ISODay]]).
+        1. Let _result_ be ! CompareTemporalDate(_one_.[[ISOYear]], _one_.[[ISOMonth]], _one_.[[ISODay]], _two_.[[ISOYear]], _two_.[[ISOMonth]], _two_.[[ISODay]]).
+        1. If _result_ ≠ 0, then
+          1. Return _result_.
+        1. Let _calendarOne_ be ? CalendarToString(_one_.[[Calendar]]).
+        1. Let _calendarTwo_ be ? CalendarToString(_two_.[[Calendar]]).
+        1. Let _r_ be the result of performing Abstract Relational Comparison _calendarOne_ &lt; _calendarTwo_.
+        1. If _r_ is *true*, return -1.
+        1. Let _r_ be the result of performing Abstract Relational Comparison _calendarTwo_ &lt; _calendarOne_.
+        1. If _r_ is *true*, return 1.
+        1. Return +0.
       </emu-alg>
     </emu-clause>
   </emu-clause>
@@ -104,7 +131,7 @@
 
     <emu-clause id="sec-temporal.date.prototype.constructor">
       <h1>Temporal.Date.prototype.constructor</h1>
-      <p>The initial value of Temporal.Date.prototype.constructor is %Temporal.Date%.</p>
+      <p>The initial value of `Temporal.Date.prototype.constructor` is %Temporal.Date%.</p>
     </emu-clause>
 
     <emu-clause id="sec-temporal.date.prototype-@@tostringtag">
@@ -120,7 +147,7 @@
     <emu-clause id="sec-get-temporal.date.prototype.calendar">
       <h1>get Temporal.Date.prototype.calendar</h1>
       <p>
-        `Temporal.Date.prototype.calendar` is an accessor property whose set accessor function is undefined.
+        `Temporal.Date.prototype.calendar` is an accessor property whose set accessor function is *undefined*.
         Its get accessor function performs the following steps:
       </p>
       <emu-alg>
@@ -130,10 +157,26 @@
       </emu-alg>
     </emu-clause>
 
+    <emu-clause id="sec-get-temporal.date.prototype.era">
+      <h1>get Temporal.Date.prototype.era</h1>
+      <p>
+        `Temporal.Date.prototype.era` is an accessor property whose set accessor function is *undefined*.
+        Its get accessor function performs the following steps:
+      </p>
+      <emu-alg>
+        1. Let _temporalDate_ be the *this* value.
+        1. Perform ? RequireInternalSlot(_temporalDate_, [[InitializedTemporalDate]]).
+        1. Let _calendar_ be _temporalDate_.[[Calendar]].
+        1. Let _method_ be ? Get(_calendar_, *"era"*).
+        1. Return ? Call(_method_, _calendar_, « _temporalDate_ »).
+        1. <mark>TODO: Should this call ToString?.</mark>
+      </emu-alg>
+    </emu-clause>
+
     <emu-clause id="sec-get-temporal.date.prototype.year">
       <h1>get Temporal.Date.prototype.year</h1>
       <p>
-        `Temporal.Date.prototype.year` is an accessor property whose set accessor function is undefined.
+        `Temporal.Date.prototype.year` is an accessor property whose set accessor function is *undefined*.
         Its get accessor function performs the following steps:
       </p>
       <emu-alg>
@@ -142,13 +185,14 @@
         1. Let _calendar_ be _temporalDate_.[[Calendar]].
         1. Let _method_ be ? Get(_calendar_, *"year"*).
         1. Return ? Call(_method_, _calendar_, « _temporalDate_ »).
+        1. <mark>TODO: Should this call ToInteger?.</mark>
       </emu-alg>
     </emu-clause>
 
     <emu-clause id="sec-get-temporal.date.prototype.month">
       <h1>get Temporal.Date.prototype.month</h1>
       <p>
-        `Temporal.Date.prototype.month` is an accessor property whose set accessor function is undefined.
+        `Temporal.Date.prototype.month` is an accessor property whose set accessor function is *undefined*.
         Its get accessor function performs the following steps:
       </p>
       <emu-alg>
@@ -157,13 +201,14 @@
         1. Let _calendar_ be _temporalDate_.[[Calendar]].
         1. Let _method_ be ? Get(_calendar_, *"month"*).
         1. Return ? Call(_method_, _calendar_, « _temporalDate_ »).
+        1. <mark>TODO: Should this call ToInteger?.</mark>
       </emu-alg>
     </emu-clause>
 
     <emu-clause id="sec-get-temporal.date.prototype.day">
       <h1>get Temporal.Date.prototype.day</h1>
       <p>
-        `Temporal.Date.prototype.day` is an accessor property whose set accessor function is undefined.
+        `Temporal.Date.prototype.day` is an accessor property whose set accessor function is *undefined*.
         Its get accessor function performs the following steps:
       </p>
       <emu-alg>
@@ -172,13 +217,14 @@
         1. Let _calendar_ be _temporalDate_.[[Calendar]].
         1. Let _method_ be ? Get(_calendar_, *"day"*).
         1. Return ? Call(_method_, _calendar_, « _temporalDate_ »).
+        1. <mark>TODO: Should this call ToInteger?.</mark>
       </emu-alg>
     </emu-clause>
 
     <emu-clause id="sec-get-temporal.date.prototype.dayofweek">
       <h1>get Temporal.Date.prototype.dayOfWeek</h1>
       <p>
-        `Temporal.Date.prototype.dayOfWeek` is an accessor property whose set accessor function is undefined.
+        `Temporal.Date.prototype.dayOfWeek` is an accessor property whose set accessor function is *undefined*.
         Its get accessor function performs the following steps:
       </p>
       <emu-alg>
@@ -187,13 +233,14 @@
         1. Let _calendar_ be _temporalDate_.[[Calendar]].
         1. Let _method_ be ? Get(_calendar_, *"dayOfWeek"*).
         1. Return ? Call(_method_, _calendar_, « _temporalDate_ »).
+        1. <mark>TODO: Should this call ToInteger?.</mark>
       </emu-alg>
     </emu-clause>
 
     <emu-clause id="sec-get-temporal.date.prototype.dayofyear">
       <h1>get Temporal.Date.prototype.dayOfYear</h1>
       <p>
-        `Temporal.Date.prototype.dayOfYear` is an accessor property whose set accessor function is undefined.
+        `Temporal.Date.prototype.dayOfYear` is an accessor property whose set accessor function is *undefined*.
         Its get accessor function performs the following steps:
       </p>
       <emu-alg>
@@ -202,13 +249,14 @@
         1. Let _calendar_ be _temporalDate_.[[Calendar]].
         1. Let _method_ be ? Get(_calendar_, *"dayOfYear"*).
         1. Return ? Call(_method_, _calendar_, « _temporalDate_ »).
+        1. <mark>TODO: Should this call ToInteger?.</mark>
       </emu-alg>
     </emu-clause>
 
     <emu-clause id="sec-get-temporal.date.prototype.weekofyear">
       <h1>get Temporal.Date.prototype.weekOfYear</h1>
       <p>
-        `Temporal.Date.prototype.weekOfYear` is an accessor property whose set accessor function is undefined.
+        `Temporal.Date.prototype.weekOfYear` is an accessor property whose set accessor function is *undefined*.
         Its get accessor function performs the following steps:
       </p>
       <emu-alg>
@@ -217,13 +265,14 @@
         1. Let _calendar_ be _temporalDate_.[[Calendar]].
         1. Let _method_ be ? Get(_calendar_, *"weekOfYear"*).
         1. Return ? Call(_method_, _calendar_, « _temporalDate_ »).
+        1. <mark>TODO: Should this call ToInteger?.</mark>
       </emu-alg>
     </emu-clause>
 
     <emu-clause id="sec-get-temporal.date.prototype.daysinweek">
       <h1>get Temporal.Date.prototype.daysInWeek</h1>
       <p>
-        `Temporal.Date.prototype.daysInWeek` is an accessor property whose set accessor function is undefined.
+        `Temporal.Date.prototype.daysInWeek` is an accessor property whose set accessor function is *undefined*.
         Its get accessor function performs the following steps:
       </p>
       <emu-alg>
@@ -232,28 +281,14 @@
         1. Let _calendar_ be _temporalDate_.[[Calendar]].
         1. Let _method_ be ? Get(_calendar_, *"daysInWeek"*).
         1. Return ? Call(_method_, _calendar_, « _temporalDate_ »).
-      </emu-alg>
-    </emu-clause>
-
-    <emu-clause id="sec-get-temporal.date.prototype.daysinyear">
-      <h1>get Temporal.Date.prototype.daysInYear</h1>
-      <p>
-        `Temporal.Date.prototype.daysInYear` is an accessor property whose set accessor function is undefined.
-        Its get accessor function performs the following steps:
-      </p>
-      <emu-alg>
-        1. Let _temporalDate_ be the *this* value.
-        1. Perform ? RequireInternalSlot(_temporalDate_, [[InitializedTemporalDate]]).
-        1. Let _calendar_ be _temporalDate_.[[Calendar]].
-        1. Let _method_ be ? Get(_calendar_, *"daysInYear"*).
-        1. Return ? Call(_method_, _calendar_, « _temporalDate_ »).
+        1. <mark>TODO: Should this call ToInteger?.</mark>
       </emu-alg>
     </emu-clause>
 
     <emu-clause id="sec-get-temporal.date.prototype.daysinmonth">
       <h1>get Temporal.Date.prototype.daysInMonth</h1>
       <p>
-        `Temporal.Date.prototype.daysInMonth` is an accessor property whose set accessor function is undefined.
+        `Temporal.Date.prototype.daysInMonth` is an accessor property whose set accessor function is *undefined*.
         Its get accessor function performs the following steps:
       </p>
       <emu-alg>
@@ -262,13 +297,30 @@
         1. Let _calendar_ be _temporalDate_.[[Calendar]].
         1. Let _method_ be ? Get(_calendar_, *"daysInMonth"*).
         1. Return ? Call(_method_, _calendar_, « _temporalDate_ »).
+        1. <mark>TODO: Should this call ToInteger?.</mark>
+      </emu-alg>
+    </emu-clause>
+
+    <emu-clause id="sec-get-temporal.date.prototype.daysinyear">
+      <h1>get Temporal.Date.prototype.daysInYear</h1>
+      <p>
+        `Temporal.Date.prototype.daysInYear` is an accessor property whose set accessor function is *undefined*.
+        Its get accessor function performs the following steps:
+      </p>
+      <emu-alg>
+        1. Let _temporalDate_ be the *this* value.
+        1. Perform ? RequireInternalSlot(_temporalDate_, [[InitializedTemporalDate]]).
+        1. Let _calendar_ be _temporalDate_.[[Calendar]].
+        1. Let _method_ be ? Get(_calendar_, *"daysInYear"*).
+        1. Return ? Call(_method_, _calendar_, « _temporalDate_ »).
+        1. <mark>TODO: Should this call ToInteger?.</mark>
       </emu-alg>
     </emu-clause>
 
     <emu-clause id="sec-get-temporal.date.prototype.monthsinyear">
       <h1>get Temporal.Date.prototype.monthsInYear</h1>
       <p>
-        `Temporal.Date.prototype.monthsInYear` is an accessor property whose set accessor function is undefined.
+        `Temporal.Date.prototype.monthsInYear` is an accessor property whose set accessor function is *undefined*.
         Its get accessor function performs the following steps:
       </p>
       <emu-alg>
@@ -277,13 +329,14 @@
         1. Let _calendar_ be _temporalDate_.[[Calendar]].
         1. Let _method_ be ? Get(_calendar_, *"monthsInYear"*).
         1. Return ? Call(_method_, _calendar_, « _temporalDate_ »).
+        1. <mark>TODO: Should this call ToInteger?.</mark>
       </emu-alg>
     </emu-clause>
 
     <emu-clause id="sec-get-temporal.date.prototype.isleapyear">
       <h1>get Temporal.Date.prototype.isLeapYear</h1>
       <p>
-        `Temporal.Date.prototype.isLeapYear` is an accessor property whose set accessor function is undefined.
+        `Temporal.Date.prototype.isLeapYear` is an accessor property whose set accessor function is *undefined*.
         Its get accessor function performs the following steps:
       </p>
       <emu-alg>
@@ -292,6 +345,7 @@
         1. Let _calendar_ be _temporalDate_.[[Calendar]].
         1. Let _method_ be ? Get(_calendar_, *"isLeapYear"*).
         1. Return ? Call(_method_, _calendar_, « _temporalDate_ »).
+        1. <mark>TODO: Should this call ToBoolean?.</mark>
       </emu-alg>
     </emu-clause>
 
@@ -303,7 +357,14 @@
       <emu-alg>
         1. Let _temporalDate_ be the *this* value.
         1. Perform ? RequireInternalSlot(_temporalDate_, [[InitializedTemporalDate]]).
-        1. Return ? CreateTemporalYearMonth(_temporalDate_.[[ISOYear]], _temporalDate_.[[ISOMonth]]).
+        1. Let _calendar_ be _temporalDate_.[[Calendar]].
+        1. Let _dateFields_ be ? ToTemporalDateRecord(_temporalDate_).
+        1. Let _record_ be the new Record {
+            [[Era]]: _dateFields_.[[Era]],
+            [[Year]]: _dateFields_.[[Year]],
+            [[Month]]: _dateFields_.[[Month]]
+          }.
+        1. Return ? YearMonthFromFields(_calendar_, _record_, *"constrain"*, %Temporal.YearMonth%).
       </emu-alg>
     </emu-clause>
 
@@ -315,7 +376,13 @@
       <emu-alg>
         1. Let _temporalDate_ be the *this* value.
         1. Perform ? RequireInternalSlot(_temporalDate_, [[InitializedTemporalDate]]).
-        1. Return ? CreateTemporalMonthDay(_temporalDate_.[[ISOMonth]], _temporalDate_.[[ISODay]]).
+        1. Let _calendar_ be _temporalDate_.[[Calendar]].
+        1. Let _dateFields_ be ? ToTemporalDateRecord(_temporalDate_).
+        1. Let _record_ be the new Record {
+            [[Month]]: _dateFields_.[[Month]],
+            [[Day]]: _dateFields_.[[Day]]
+          }.
+        1. Return ? MonthDayFromFields(_calendar_, _record_, *"constrain"*, %Temporal.MonthDay%).
       </emu-alg>
     </emu-clause>
 
@@ -326,7 +393,8 @@
       </p>
       <emu-alg>
         1. Let _temporalDate_ be the *this* value.
-        1. Let _record_ be ? ToPartialDate(_temporalDate_).
+        1. Perform ? RequireInternalSlot(_temporalDate_, [[InitializedTemporalDate]]).
+        1. Let _record_ be ? ToTemporalDateRecord(_temporalDate_).
         1. Let _fields_ be ? ObjectCreate(%ObjectPrototype%).
         1. For each row of <emu-xref href="#table-temporal-temporaldatelike-properties"></emu-xref>, except the header row, in table order, do
           1. Let _p_ be the Property value of the current row.
@@ -345,10 +413,10 @@
         1. Let _temporalDate_ be the *this* value.
         1. Perform ? RequireInternalSlot(_temporalDate_, [[InitializedTemporalDate]]).
         1. Let _fields_ be ? ObjectCreate(%ObjectPrototype%).
-        1. Perform ! CreateDataPropertyOrThrow(_fields_, *"isoYear"*, _temporalDate_.[[ISOYear]]).
-        1. Perform ! CreateDataPropertyOrThrow(_fields_, *"isoMonth"*, _temporalDate_.[[ISOMonth]]).
-        1. Perform ! CreateDataPropertyOrThrow(_fields_, *"isoDay"*, _temporalDate_.[[ISODay]]).
         1. Perform ! CreateDataPropertyOrThrow(_fields_, *"calendar"*, _temporalDate_.[[Calendar]]).
+        1. Perform ! CreateDataPropertyOrThrow(_fields_, *"isoDay"*, _temporalDate_.[[ISODay]]).
+        1. Perform ! CreateDataPropertyOrThrow(_fields_, *"isoMonth"*, _temporalDate_.[[ISOMonth]]).
+        1. Perform ! CreateDataPropertyOrThrow(_fields_, *"isoYear"*, _temporalDate_.[[ISOYear]]).
         1. Return _fields_.
       </emu-alg>
     </emu-clause>
@@ -366,6 +434,7 @@
         1. Perform ? RejectDurationSign(_duration_.[[Years]], _duration_.[[Months]], _duration_.[[Weeks]], _duration_.[[Days]], _duration_.[[Hours]], _duration_.[[Minutes]], _duration_.[[Seconds]], _duration_.[[Milliseconds]], _duration_.[[Microseconds]], _duration_.[[Nanoseconds]]).
         1. Let _balanceResult_ be ? BalanceDuration(_duration_.[[Days]], _duration_.[[Hours]], _duration_.[[Minutes]], _duration_.[[Seconds]], _duration_.[[Milliseconds]], _duration_.[[Microseconds]], _duration_.[[Nanoseconds]], *"days"*).
         1. Let _overflow_ be ? ToTemporalOverflow(_options_).
+        1. <mark>TODO: Defer to calendar.</mark>
         1. Let _result_ be ? AddDate(_temporalDate_.[[ISOYear]], _temporalDate_.[[ISOMonth]], _temporalDate_.[[ISODay]], _duration_.[[Years]], _duration_.[[Months]], _duration_.[[Weeks]], _balanceResult_.[[Days]], _overflow_).
         1. Assert: ! ValidateDate(_result_.[[Year]], _result_.[[Month]], _result_.[[Day]]) is *true*.
         1. Return ? CreateTemporalDateFromInstance(_temporalDate_, _result_.[[Year]], _result_.[[Month]], _result_.[[Day]]).
@@ -385,6 +454,7 @@
         1. Perform ? RejectDurationSign(_duration_.[[Years]], _duration_.[[Months]], _duration_.[[Weeks]], _duration_.[[Days]], _duration_.[[Hours]], _duration_.[[Minutes]], _duration_.[[Seconds]], _duration_.[[Milliseconds]], _duration_.[[Microseconds]], _duration_.[[Nanoseconds]]).
         1. Let _balanceResult_ be ? BalanceDuration(_duration_.[[Days]], _duration_.[[Hours]], _duration_.[[Minutes]], _duration_.[[Seconds]], _duration_.[[Milliseconds]], _duration_.[[Microseconds]], _duration_.[[Nanoseconds]], *"days"*).
         1. Let _overflow_ be ? ToTemporalOverflow(_options_).
+        1. <mark>TODO: Defer to calendar.</mark>
         1. Let _result_ be ? SubtractDate(_temporalDate_.[[ISOYear]], _temporalDate_.[[ISOMonth]], _temporalDate_.[[ISODay]], _duration_.[[Years]], _duration_.[[Months]], _duration_.[[Weeks]], _balanceResult_.[[Days]], _overflow_).
         1. Assert: ! ValidateDate(_result_.[[Year]], _result_.[[Month]], _result_.[[Day]]) is *true*.
         1. Return ? CreateTemporalDateFromInstance(_temporalDate_, _result_.[[Year]], _result_.[[Month]], _result_.[[Day]]).
@@ -398,6 +468,7 @@
         The following steps are taken:
       </p>
       <emu-alg>
+        1. <mark>TODO: Handle calendar.</mark>
         1. Let _temporalDate_ be the *this* value.
         1. Perform ? RequireInternalSlot(_temporalDate_, [[InitializedTemporalDate]]).
         1. Let _partialDate_ be ? ToPartialDate(_temporalDateLike_).
@@ -414,9 +485,21 @@
           1. Let _d_ be _partialDate_.[[Day]].
         1. Else,
           1. Let _d_ be _temporalDate_.[[ISODay]].
+        1. <mark>TODO: Defer to calendar.</mark>
         1. Let _result_ be ? RegulateDate(_y_, _m_, _d_, _overflow_).
         1. Assert: ! ValidateDate(_result_.[[Year]], _result_.[[Month]], _result_.[[Day]]) is *true*.
         1. Return ? CreateTemporalDateFromInstance(_temporalDate_, _result_.[[Year]], _result_.[[Month]], _result_.[[Day]]).
+      </emu-alg>
+    </emu-clause>
+
+    <emu-clause id="sec-temporal.date.prototype.withcalendar">
+      <h1>Temporal.Date.prototype.withCalendar ( _calendar_ )</h1>
+      <p>
+        The `withCalendar` method takes one argument _calendar_.
+        The following steps are taken:
+      </p>
+      <emu-alg>
+        1. <mark>TODO.</mark>
       </emu-alg>
     </emu-clause>
 
@@ -431,8 +514,11 @@
         1. Perform ? RequireInternalSlot(_temporalDate_, [[InitializedTemporalDate]]).
         1. Perform ? RequireInternalSlot(_other_, [[InitializedTemporalDate]]).
         1. Let _largestUnit_ be ? ToLargestTemporalUnit(_options_, « *"hours"*, *"minutes"*, *"seconds"*, *"milliseconds"*, *"microseconds"*, *"nanoseconds"* », *"days"*).
+        1. If ? CalendarToString(_temporalDate_) ≠ ? CalendarToString(_other_), then
+          1. Throw a *RangeError* exception.
         1. Let _result_ be ? DifferenceDate(_other_.[[ISOYear]], _other_.[[ISOMonth]], _other_.[[ISODay]], _temporalDate_.[[ISOYear]], _temporalDate_.[[ISOMonth]], _temporalDate_.[[ISODay]], _largestUnit_).
         1. Return ? CreateTemporalDuration(_result_.[[Years]], _result_.[[Months]], _result_.[[Weeks]], _result_.[[Days]], 0, 0, 0, 0, 0, 0).
+        1. <mark>TODO: defer to `calendar.dateDifference()`.</mark>
       </emu-alg>
     </emu-clause>
 
@@ -446,9 +532,10 @@
         1. Let _temporalDate_ be the *this* value.
         1. Perform ? RequireInternalSlot(_temporalDate_, [[InitializedTemporalDate]]).
         1. Perform ? RequireInternalSlot(_other_, [[InitializedTemporalDate]]).
-        1. If _temporalDate_.[[Year]] ≠ _other_.[[Year]], return *false*.
-        1. If _temporalDate_.[[Month]] ≠ _other_.[[Month]], return *false*.
-        1. If _temporalDate_.[[Day]] ≠ _other_.[[Day]], return *false*.
+        1. If _temporalDate_.[[ISOYear]] ≠ _other_.[[ISOYear]], return *false*.
+        1. If _temporalDate_.[[ISOMonth]] ≠ _other_.[[ISOMonth]], return *false*.
+        1. If _temporalDate_.[[ISODay]] ≠ _other_.[[ISODay]], return *false*.
+        1. If ? CalendarToString(_temporalDate_) ≠ ? CalendarToString(_other_), return *false*.
         1. Return *true*.
       </emu-alg>
     </emu-clause>
@@ -456,18 +543,19 @@
     <emu-clause id="sec-temporal.date.prototype.todatetime">
       <h1>Temporal.Date.prototype.toDateTime ( [ _temporalTime_ ] )</h1>
       <p>
-        The `toDateTime` method takes one optional argument _temporalTime_.
+        The `toDateTime` method takes one argument _temporalTime_.
         The following steps are taken:
       </p>
       <emu-alg>
         1. Let _temporalDate_ be the *this* value.
         1. Perform ? RequireInternalSlot(_temporalDate_, [[InitializedTemporalDate]]).
         1. If _temporalTime_ is *undefined*, then
-          1. Return ? CreateTemporalDateTime(_temporalDate_.[[ISOYear]], _temporalDate_.[[ISOMonth]], _temporalDate_.[[ISODay]], 0, 0, 0, 0, 0, 0).
+          1. Return ? CreateTemporalDateTime(_temporalDate_.[[ISOYear]], _temporalDate_.[[ISOMonth]], _temporalDate_.[[ISODay]], 0, 0, 0, 0, 0, 0, _temporalDate_.[[Calendar]]).
         1. Perform ? RequireInternalSlot(_temporalTime_, [[InitializedTemporalTime]]).
         1. Return ? CreateTemporalDateTime(_temporalDate_.[[ISOYear]], _temporalDate_.[[ISOMonth]], _temporalDate_.[[ISODay]],
           _temporalTime_.[[Hour]], _temporalTime_.[[Minute]], _temporalTime_.[[Second]],
-          _temporalTime_.[[Millisecond]], _temporalTime_.[[Microsecond]], _temporalTime_.[[Nanosecond]]).
+          _temporalTime_.[[Millisecond]], _temporalTime_.[[Microsecond]], _temporalTime_.[[Nanosecond]],
+          _temporalDate_.[[Calendar]]).
       </emu-alg>
     </emu-clause>
 
@@ -538,7 +626,7 @@
     <h1>Abstract Operations for Temporal.Date Objects</h1>
 
     <emu-clause id="sec-temporal-createtemporaldate" aoid="CreateTemporalDate">
-      <h1>CreateTemporalDate ( _isoYear_, _isoMonth_, _isoDay_ [ , _newTarget_ ] )</h1>
+      <h1>CreateTemporalDate ( _isoYear_, _isoMonth_, _isoDay_, _calendar_ [ , _newTarget_ ] )</h1>
       <emu-alg>
         1. Perform ? RejectDate(_isoYear_, _isoMonth_, _isoDay_).
         1. If ! DateTimeWithinLimits(_isoYear_, _isoMonth_, _isoDay_, 12, 0, 0, 0, 0, 0) is not ~in range~, then
@@ -548,7 +636,7 @@
         1. Set _object_.[[ISOYear]] to _isoYear_.
         1. Set _object_.[[ISOMonth]] to _isoMonth_.
         1. Set _object_.[[ISODay]] to _isoDay_.
-        1. <mark>TODO: Set it to the correct calendar.</mark> Set _object_.[[Calendar]] to ! GetDefaultCalendar().
+        1. Set _object_.[[Calendar]] to _calendar_.
         1. Return _object_.
       </emu-alg>
       <emu-note>
@@ -557,24 +645,24 @@
     </emu-clause>
 
     <emu-clause id="sec-temporal-createtemporaldatefrominstance" aoid="CreateTemporalDateFromInstance">
-      <h1>CreateTemporalDateFromInstance ( _temporalDate_, _isoYear_, _isoMonth_, _isoDay_ )</h1>
+      <h1>CreateTemporalDateFromInstance ( _temporalDate_, _isoYear_, _isoMonth_, _isoDay_, _calendar_ )</h1>
       <emu-alg>
         1. Assert: Type(_temporalDate_) is Object and _temporalDate_ has an [[InitializedTemporalDate]] internal slot.
         1. Assert: ! ValidateDate(_isoYear_, _isoMonth_, _isoDay_) is *true*.
         1. Let _constructor_ be ? SpeciesConstructor(_temporalDate_, %Temporal.Date%).
-        1. Let _result_ be ? Construct(_constructor_, « _isoYear_, _isoMonth_, _isoDay_ »).
+        1. Let _result_ be ? Construct(_constructor_, « _isoYear_, _isoMonth_, _isoDay_, _calendar_ »).
         1. Perform ? RequireInternalSlot(_result_, [[InitializedTemporalDate]]).
         1. Return _result_.
       </emu-alg>
     </emu-clause>
 
     <emu-clause id="sec-temporal-createtemporaldatefromstatic" aoid="CreateTemporalDateFromStatic">
-      <h1>CreateTemporalDateFromStatic ( _constructor_, _year_, _month_, _day_ )</h1>
+      <h1>CreateTemporalDateFromStatic ( _constructor_, _isoYear_, _isoMonth_, _isoDay_, _calendar_ )</h1>
       <emu-alg>
-        1. Assert: ! ValidateDate(_year_, _month_, _day_) is *true*.
+        1. Assert: ! ValidateDate(_isoYear_, _isoMonth_, _isoDay_) is *true*.
         1. If ! IsConstructor(_constructor_) is *false*, then
           1. Throw a *TypeError* exception.
-        1. Let _result_ be ? Construct(_constructor_, « _year_, _month_, _day_ »).
+        1. Let _result_ be ? Construct(_constructor_, « _isoYear_, _isoMonth_, _isoDay_, _calendar_ »).
         1. Perform ? RequireInternalSlot(_result_, [[InitializedTemporalDate]]).
         1. Return _result_.
       </emu-alg>
@@ -608,8 +696,8 @@
           1. Return the Record {
             [[Years]]: 0,
             [[Months]]: 0,
-            [[Weeks]]: _weeks_ &times; _sign_,
-            [[Days]]: _days_ &times; _sign_
+            [[Weeks]]: _weeks_ × _sign_,
+            [[Days]]: _days_ × _sign_
           }.
         1. Let _months_ be _greater_.[[Month]] − _smaller_.[[Month]].
         1. Let _balanceResult_ be ? BalanceDurationDate(_years_, _months_, _smaller_.[[Year]], _smaller_.[[Month]], _smaller_.[[Day]]).
@@ -628,10 +716,10 @@
           1. Set _months_ to _years_ × 12.
           1. Set _years_ to 0.
         1. Return the Record {
-          [[Years]]: _years_ &times; _sign_,
-          [[Months]]: _months_ &times; _sign_,
+          [[Years]]: _years_ × _sign_,
+          [[Months]]: _months_ × _sign_,
           [[Weeks]]: 0,
-          [[Days]]: _days_ &times; _sign_
+          [[Days]]: _days_ × _sign_
           }.
       </emu-alg>
     </emu-clause>
@@ -640,19 +728,13 @@
       <h1>ToTemporalDateRecord ( _temporalDateLike_ )</h1>
       <emu-alg>
         1. Assert: Type(_temporalDateLike_) is Object.
-        1. If _temporalDateLike_ has an [[InitializedTemporalDate]] internal slot, then
-          1. Return the Record {
-              [[Year]]: _temporalDateLike_.[[Year]],
-              [[Month]]: _temporalDateLike_.[[Month]],
-              [[Day]]: _temporalDateLike_.[[Day]],
-            }.
         1. Let _result_ be a new Record with all the internal slots given in the Internal Slot column in <emu-xref href="#table-temporal-temporaldatelike-properties"></emu-xref>.
         1. For each row of <emu-xref href="#table-temporal-temporaldatelike-properties"></emu-xref>, except the header row, in table order, do
           1. Let _property_ be the Property value of the current row.
           1. Let _value_ be ? Get(_temporalDateLike_, _property_).
-          1. If _value_ is *undefined*, then
-            1. Throw a *TypeError* exception.
-          1. Let _value_ be ? ToInteger(_value_).
+          1. Let _required_ be the Required value of the current row.
+          1. Let _conversion_ be the Conversion value of the current row.
+          1. Set _value_ to ? TemporalConvert(_value_, _required_, _conversion_).
           1. Set _result_'s internal slot whose name is the Internal Slot value of the current row to _value_.
         1. Return _result_.
       </emu-alg>
@@ -688,20 +770,40 @@
             <tr>
               <th>Internal Slot</th>
               <th>Property</th>
+              <th>Default value</th>
+              <th>Conversion</th>
             </tr>
           </thead>
           <tbody>
             <tr>
+              <td>[[Calendar]]</td>
+              <td>`"calendar"`</td>
+              <td>~default~</td>
+              <td>~calendar~</td>
+            </tr>
+            <tr>
               <td>[[Day]]</td>
               <td>`"day"`</td>
+              <td>~required~</td>
+              <td>~integer~</td>
+            </tr>
+            <tr>
+              <td>[[Era]]</td>
+              <td>`"era"`</td>
+              <td>~optional~</td>
+              <td>~string~</td>
             </tr>
             <tr>
               <td>[[Month]]</td>
               <td>`"month"`</td>
+              <td>~required~</td>
+              <td>~integer~</td>
             </tr>
             <tr>
               <td>[[Year]]</td>
               <td>`"year"`</td>
+              <td>~required~</td>
+              <td>~integer~</td>
             </tr>
           </tbody>
         </table>
@@ -753,8 +855,8 @@
         1. Set _month_ to ! ConstrainToRange(_month_, 1, 12).
         1. Set _day_ to ! ConstrainToRange(_day_, 1, ! DaysInMonth(_year_, _month_)).
         1. Return the Record {
-          [[Year]]: _yearMonth_.[[Year]],
-          [[Month]]: _yearMonth_.[[Month]],
+          [[Year]]: _year_,
+          [[Month]]: _month_,
           [[Day]]: _day_
           }.
       </emu-alg>
@@ -784,7 +886,7 @@
           1. Set _day_ to _day_ − ! DaysInYear(_testYear_).
           1. Set _year_ to _year_ + 1.
           1. Set _testYear_ to _testYear_ + 1.
-        1. NOTE: To deal with negative numbers of days whose absolute value greater than the number of days in the current month, the following section subtracts months and adds days until the number of days is greater than 0.
+        1. NOTE: To deal with negative numbers of days whose absolute value is greater than the number of days in the current month, the following section subtracts months and adds days until the number of days is greater than 0.
         1. Repeat, while _day_ &lt; 1,
           1. Set _balancedYearMonth_ be ? BalanceYearMonth(_year_, _month_ − 1).
           1. Set _year_ to _balancedYearMonth_.[[Year]].
@@ -846,7 +948,8 @@
         1. Let _year_ be ! PadYear(_temporalDate_.[[ISOYear]]).
         1. Let _month_ be _temporalDate_.[[ISOMonth]] formatted as a two-digit decimal number, padded to the left with a zero if necessary.
         1. Let _day_ be _temporalDate_.[[ISODay]] formatted as a two-digit decimal number, padded to the left with a zero if necessary.
-        1. Return the string-concatenation of _year_, the code unit 0x002D (HYPHEN-MINUS), _month_, the code unit 0x002D (HYPHEN-MINUS), and _day_.
+        1. Let _calendar_ be ? FormatCalendarAnnotation(_temporalDate_.[[Calendar]]).
+        1. Return the string-concatenation of _year_, the code unit 0x002D (HYPHEN-MINUS), _month_, the code unit 0x002D (HYPHEN-MINUS), _day_, and _calendar_.
       </emu-alg>
     </emu-clause>
 

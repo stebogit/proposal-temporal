@@ -1,6 +1,7 @@
 /* global __debug__ */
 
 import { ES } from './ecmascript.mjs';
+import { DateTimeFormat } from './intl.mjs';
 import { GetIntrinsic, MakeIntrinsicClass } from './intrinsicclass.mjs';
 
 import {
@@ -18,6 +19,18 @@ import {
   GetSlot,
   SetSlot
 } from './slots.mjs';
+
+function TemporalTimeToString(time) {
+  const hour = ES.ISODateTimePartString(GetSlot(time, HOUR));
+  const minute = ES.ISODateTimePartString(GetSlot(time, MINUTE));
+  const seconds = ES.FormatSecondsStringPart(
+    GetSlot(time, SECOND),
+    GetSlot(time, MILLISECOND),
+    GetSlot(time, MICROSECOND),
+    GetSlot(time, NANOSECOND)
+  );
+  return `${hour}:${minute}${seconds}`;
+}
 
 export class Time {
   constructor(hour = 0, minute = 0, second = 0, millisecond = 0, microsecond = 0, nanosecond = 0) {
@@ -74,7 +87,6 @@ export class Time {
 
   with(temporalTimeLike, options = undefined) {
     if (!ES.IsTemporalTime(this)) throw new TypeError('invalid receiver');
-    const overflow = ES.ToTemporalOverflow(options);
     const props = ES.ToPartialRecord(temporalTimeLike, [
       'hour',
       'microsecond',
@@ -86,6 +98,7 @@ export class Time {
     if (!props) {
       throw new RangeError('invalid time-like');
     }
+    const overflow = ES.ToTemporalOverflow(options);
     let {
       hour = GetSlot(this, HOUR),
       minute = GetSlot(this, MINUTE),
@@ -110,11 +123,26 @@ export class Time {
   }
   plus(temporalDurationLike, options = undefined) {
     if (!ES.IsTemporalTime(this)) throw new TypeError('invalid receiver');
-    let { hour, minute, second, millisecond, microsecond, nanosecond } = this;
-    const duration = ES.ToLimitedTemporalDuration(temporalDurationLike);
-    const overflow = ES.ToTemporalOverflow(options);
-    const { years, months, weeks, days, hours, minutes, seconds, milliseconds, microseconds, nanoseconds } = duration;
+    let hour = GetSlot(this, HOUR);
+    let minute = GetSlot(this, MINUTE);
+    let second = GetSlot(this, SECOND);
+    let millisecond = GetSlot(this, MILLISECOND);
+    let microsecond = GetSlot(this, MICROSECOND);
+    let nanosecond = GetSlot(this, NANOSECOND);
+    const {
+      years,
+      months,
+      weeks,
+      days,
+      hours,
+      minutes,
+      seconds,
+      milliseconds,
+      microseconds,
+      nanoseconds
+    } = ES.ToLimitedTemporalDuration(temporalDurationLike);
     ES.RejectDurationSign(years, months, weeks, days, hours, minutes, seconds, milliseconds, microseconds, nanoseconds);
+    const overflow = ES.ToTemporalOverflow(options);
     const sign = ES.DurationSign(
       years,
       months,
@@ -174,11 +202,26 @@ export class Time {
   }
   minus(temporalDurationLike, options = undefined) {
     if (!ES.IsTemporalTime(this)) throw new TypeError('invalid receiver');
-    let { hour, minute, second, millisecond, microsecond, nanosecond } = this;
-    const duration = ES.ToLimitedTemporalDuration(temporalDurationLike);
-    const overflow = ES.ToTemporalOverflow(options);
-    const { years, months, weeks, days, hours, minutes, seconds, milliseconds, microseconds, nanoseconds } = duration;
+    let hour = GetSlot(this, HOUR);
+    let minute = GetSlot(this, MINUTE);
+    let second = GetSlot(this, SECOND);
+    let millisecond = GetSlot(this, MILLISECOND);
+    let microsecond = GetSlot(this, MICROSECOND);
+    let nanosecond = GetSlot(this, NANOSECOND);
+    const {
+      years,
+      months,
+      weeks,
+      days,
+      hours,
+      minutes,
+      seconds,
+      milliseconds,
+      microseconds,
+      nanoseconds
+    } = ES.ToLimitedTemporalDuration(temporalDurationLike);
     ES.RejectDurationSign(years, months, weeks, days, hours, minutes, seconds, milliseconds, microseconds, nanoseconds);
+    const overflow = ES.ToTemporalOverflow(options);
     const sign = ES.DurationSign(
       years,
       months,
@@ -346,20 +389,15 @@ export class Time {
 
   toString() {
     if (!ES.IsTemporalTime(this)) throw new TypeError('invalid receiver');
-    let hour = ES.ISODateTimePartString(GetSlot(this, HOUR));
-    let minute = ES.ISODateTimePartString(GetSlot(this, MINUTE));
-    let seconds = ES.FormatSecondsStringPart(
-      GetSlot(this, SECOND),
-      GetSlot(this, MILLISECOND),
-      GetSlot(this, MICROSECOND),
-      GetSlot(this, NANOSECOND)
-    );
-    let resultString = `${hour}:${minute}${seconds}`;
-    return resultString;
+    return TemporalTimeToString(this);
   }
-  toLocaleString(...args) {
+  toJSON() {
     if (!ES.IsTemporalTime(this)) throw new TypeError('invalid receiver');
-    return new Intl.DateTimeFormat(...args).format(this);
+    return TemporalTimeToString(this);
+  }
+  toLocaleString(locales = undefined, options = undefined) {
+    if (!ES.IsTemporalTime(this)) throw new TypeError('invalid receiver');
+    return new DateTimeFormat(locales, options).format(this);
   }
   valueOf() {
     throw new TypeError('use compare() or equals() to compare Temporal.Time');
@@ -382,15 +420,14 @@ export class Time {
     return new DateTime(year, month, day, hour, minute, second, millisecond, microsecond, nanosecond, calendar);
   }
   getFields() {
-    const fields = ES.ToTemporalTimeRecord(this);
-    if (!fields) throw new TypeError('invalid receiver');
-    return fields;
+    if (!ES.IsTemporalTime(this)) throw new TypeError('invalid receiver');
+    return ES.ToTemporalTimeRecord(this);
   }
 
   static from(item, options = undefined) {
     const overflow = ES.ToTemporalOverflow(options);
     let hour, minute, second, millisecond, microsecond, nanosecond;
-    if (typeof item === 'object' && item) {
+    if (ES.Type(item) === 'Object') {
       if (ES.IsTemporalTime(item)) {
         hour = GetSlot(item, HOUR);
         minute = GetSlot(item, MINUTE);
@@ -399,7 +436,6 @@ export class Time {
         microsecond = GetSlot(item, MICROSECOND);
         nanosecond = GetSlot(item, NANOSECOND);
       } else {
-        // Intentionally largest to smallest units
         ({ hour, minute, second, millisecond, microsecond, nanosecond } = ES.ToTemporalTimeRecord(item));
       }
     } else {
@@ -428,6 +464,5 @@ export class Time {
     return ES.ComparisonResult(0);
   }
 }
-Time.prototype.toJSON = Time.prototype.toString;
 
 MakeIntrinsicClass(Time, 'Temporal.Time');
